@@ -1,0 +1,32 @@
+// schema.prisma
+// Mendefinisikan koneksi database dan model data untuk aplikasi perpustakaan.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// Model untuk menyimpan data akun pengguna (petugas/admin)
+model User {
+  id       Int    @id @default(autoincrement())
+  username String @unique
+  password String // Disimpan dalam bentuk hash bcrypt
+
+  @@map("users")
+}
+
+// Model untuk menyimpan data buku di perpustakaan
+model Book {
+  id        Int      @id @default(autoincrement())
+  title     String   // Judul buku
+  author    String   // Nama pengarang
+  publisher String   // Nama penerbit
+  stock     Int      @default(0) // Jumlah stok buku
+  createdAt DateTime @default(now()) // Waktu data ditambahkan
+
+  @@map("books")
+}
