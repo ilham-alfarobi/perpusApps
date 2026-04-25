@@ -33,3 +33,11 @@ perpusApp/
 - Autentikasi via **JWT** (kedaluwarsa 8 jam)
 - Semua CRUD endpoint dilindungi middleware JWT
 - CORS dikonfigurasi hanya untuk origin frontend
+
+## Update fitur
+
+- Tambah tabel transaksi
+- Tambah menu transaksi peminjaman dan pengembalian buku
+- Tambah fitur pencarian buku
+- Tambah fitur filter buku
+- Riwayat transaksi
