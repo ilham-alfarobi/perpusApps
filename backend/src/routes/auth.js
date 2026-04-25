@@ -72,9 +72,9 @@ router.post("/login", async (req, res) => {
         .json({ message: "Username atau password salah." });
     }
 
-    // Generate JWT dengan payload berisi id dan username, berlaku 8 jam
+    // Generate JWT dengan payload berisi id, username, dan role, berlaku 8 jam
     const token = jwt.sign(
-      { id: user.id, username: user.username },
+      { id: user.id, username: user.username, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "8h" }
     );
@@ -82,7 +82,8 @@ router.post("/login", async (req, res) => {
     res.json({
       message: "Login berhasil.",
       token,
-      user: { id: user.id, username: user.username },
+      role: user.role,
+      user: { id: user.id, username: user.username, role: user.role },
     });
   } catch (error) {
     console.error("Login error:", error);

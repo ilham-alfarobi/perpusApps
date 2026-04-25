@@ -7,6 +7,7 @@ import express from "express";
 import cors from "cors";
 import authRoutes from "./src/routes/auth.js";
 import bookRoutes from "./src/routes/books.js";
+import transactionRoutes from "./src/routes/transactions.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -40,6 +41,9 @@ app.use("/api/auth", authRoutes);
 
 // Mount rute CRUD buku (dilindungi JWT di dalam router)
 app.use("/api/books", bookRoutes);
+
+// Mount rute transaksi peminjaman
+app.use("/api/transactions", transactionRoutes);
 
 // ─── Error Handler Global 
 app.use((err, req, res, next) => {

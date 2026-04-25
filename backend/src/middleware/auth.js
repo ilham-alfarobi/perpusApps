@@ -1,10 +1,11 @@
 // src/middleware/auth.js
-// Middleware autentikasi JWT.
-// Memverifikasi token Bearer pada header 'Authorization' sebelum request
-// diteruskan ke route handler yang dilindungi.
+// Middleware autentikasi & otorisasi JWT.
+// - authenticateToken: Memverifikasi token Bearer pada header 'Authorization'.
+// - isAdmin: Mengecek apakah pengguna yang sudah login memiliki role 'ADMIN'.
 
 import jwt from "jsonwebtoken";
 
+// ─── Middleware: Verifikasi Token JWT ─────────────────────────────────────────
 export function authenticateToken(req, res, next) {
   // Format header: "Authorization: Bearer <token>"
   const authHeader = req.headers["authorization"];
@@ -26,4 +27,15 @@ export function authenticateToken(req, res, next) {
     req.user = user;
     next();
   });
+}
+
+// ─── Middleware: Cek Role Admin ───────────────────────────────────────────────
+// Harus digunakan SETELAH authenticateToken, karena bergantung pada req.user
+export function isAdmin(req, res, next) {
+  if (req.user?.role !== "ADMIN") {
+    return res.status(403).json({
+      message: "Akses ditolak. Hanya Admin yang dapat melakukan aksi ini.",
+    });
+  }
+  next();
 }

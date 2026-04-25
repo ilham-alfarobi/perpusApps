@@ -159,8 +159,9 @@ async function handleLogin() {
       password: form.password,
     });
 
-    // Simpan token dan data user ke localStorage
+    // Simpan token, role, dan data user ke localStorage
     localStorage.setItem("perpus_token", data.token);
+    localStorage.setItem("perpus_role", data.role);
     localStorage.setItem("perpus_user", JSON.stringify(data.user));
 
     // Redirect ke dashboard

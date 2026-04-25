@@ -1,21 +1,21 @@
 // src/routes/books.js
 // Menangani rute CRUD untuk data buku.
-// Semua rute dilindungi oleh middleware authenticateToken.
-// GET    /api/books       Untuk mengambil semua data buku
-// POST   /api/books       Untuk menambah buku baru
-// PUT    /api/books/:id   Untuk update data buku berdasarkan ID
-// DELETE /api/books/:id   Untuk menghapus buku berdasarkan ID
+// GET    /api/books       → Semua user yang sudah login (authenticateToken)
+// POST   /api/books       → Hanya Admin (authenticateToken + isAdmin)
+// PUT    /api/books/:id   → Hanya Admin (authenticateToken + isAdmin)
+// DELETE /api/books/:id   → Hanya Admin (authenticateToken + isAdmin)
 
 import { Router } from "express";
-import { authenticateToken } from "../middleware/auth.js";
+import { authenticateToken, isAdmin } from "../middleware/auth.js";
 import prisma from "../lib/prisma.js";
 
 const router = Router();
 
-// Terapkan middleware autentikasi ke semua rute di file ini
+// Terapkan middleware autentikasi ke SEMUA rute di file ini
 router.use(authenticateToken);
 
 // GET /api/books — Mengambil seluruh daftar buku, diurutkan terbaru
+// Bisa diakses oleh semua user yang sudah login (Admin & Anggota)
 router.get("/", async (req, res) => {
   try {
     const books = await prisma.book.findMany({
@@ -28,8 +28,8 @@ router.get("/", async (req, res) => {
   }
 });
 
-// POST /api/books — Menambahkan buku baru ke database
-router.post("/", async (req, res) => {
+// POST /api/books — Menambahkan buku baru ke database (Hanya Admin)
+router.post("/", isAdmin, async (req, res) => {
   const { title, author, publisher, stock } = req.body;
 
   if (!title || !author || !publisher) {
@@ -54,8 +54,8 @@ router.post("/", async (req, res) => {
   }
 });
 
-// PUT /api/books/:id — Mengupdate data buku berdasarkan ID
-router.put("/:id", async (req, res) => {
+// PUT /api/books/:id — Mengupdate data buku berdasarkan ID (Hanya Admin)
+router.put("/:id", isAdmin, async (req, res) => {
   const { id } = req.params;
   const { title, author, publisher, stock } = req.body;
 
@@ -80,8 +80,8 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// DELETE /api/books/:id — Menghapus buku berdasarkan ID
-router.delete("/:id", async (req, res) => {
+// DELETE /api/books/:id — Menghapus buku berdasarkan ID (Hanya Admin)
+router.delete("/:id", isAdmin, async (req, res) => {
   const { id } = req.params;
 
   try {

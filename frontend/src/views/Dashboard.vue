@@ -3,7 +3,9 @@
      - v-data-table: menampilkan daftar buku dari backend.
      - v-dialog: form tambah / edit buku.
      - Dialog konfirmasi: sebelum menghapus buku.
-     - Logout: hapus token dari localStorage dan redirect ke Login. -->
+     - RBAC: Tombol Tambah/Edit/Hapus hanya tampil untuk ADMIN.
+     - Tombol Pinjam hanya tampil untuk ANGGOTA.
+     - Logout: hapus semua data dari localStorage dan redirect ke Login. -->
 
 <template>
   <v-app>
@@ -22,6 +24,17 @@
 
       <template #append>
         <div class="d-flex align-center mr-2">
+          <!-- Badge Role -->
+          <v-chip
+            :color="isAdmin ? 'warning' : 'success'"
+            variant="tonal"
+            size="small"
+            class="mr-3 d-none d-sm-flex"
+          >
+            <v-icon start size="14">{{ isAdmin ? 'mdi-shield-crown' : 'mdi-account' }}</v-icon>
+            {{ isAdmin ? 'Admin' : 'Anggota' }}
+          </v-chip>
+
           <v-avatar color="white" size="34" class="mr-2">
             <v-icon color="primary" size="20">mdi-account</v-icon>
           </v-avatar>
@@ -29,6 +42,20 @@
             {{ currentUser?.username }}
           </span>
         </div>
+
+        <!-- Tombol Kelola Transaksi (Hanya Admin) -->
+        <v-btn
+          v-if="isAdmin"
+          id="btn-kelola-transaksi"
+          prepend-icon="mdi-swap-horizontal"
+          color="white"
+          variant="tonal"
+          class="mr-2 d-none d-sm-flex"
+          @click="$router.push({ name: 'KelolaTransaksi' })"
+        >
+          Transaksi
+        </v-btn>
+
         <v-btn
           id="btn-logout"
           icon
@@ -98,8 +125,9 @@
                   style="min-width: 220px"
                   clearable
                 />
-                <!-- Tombol Tambah -->
+                <!-- Tombol Tambah — Hanya tampil untuk ADMIN -->
                 <v-btn
+                  v-if="isAdmin"
                   id="btn-add-book"
                   color="primary"
                   prepend-icon="mdi-plus"
@@ -116,12 +144,12 @@
           <!-- Data Table -->
           <v-data-table
             id="table-books"
-            :headers="headers"
+            :headers="tableHeaders"
             :items="books"
             :search="search"
             :loading="tableLoading"
             loading-text="Memuat data buku..."
-            no-data-text="Belum ada data buku. Klik 'Tambah Buku' untuk mulai."
+            no-data-text="Belum ada data buku."
             items-per-page="10"
             class="books-table"
           >
@@ -166,32 +194,53 @@
               </span>
             </template>
 
-            <!-- Kolom aksi: tombol edit & hapus -->
+            <!-- Kolom aksi Admin: tombol edit & hapus -->
             <template #item.actions="{ item }">
               <div class="d-flex gap-1">
-                <v-btn
-                  :id="`btn-edit-${item.id}`"
-                  icon
-                  size="small"
-                  variant="tonal"
-                  color="primary"
-                  @click="openEditDialog(item)"
-                >
-                  <v-icon size="16">mdi-pencil</v-icon>
-                  <v-tooltip activator="parent" location="top">Edit</v-tooltip>
-                </v-btn>
-                <v-btn
-                  :id="`btn-delete-${item.id}`"
-                  icon
-                  size="small"
-                  variant="tonal"
-                  color="error"
-                  @click="openDeleteDialog(item)"
-                >
-                  <v-icon size="16">mdi-delete</v-icon>
-                  <v-tooltip activator="parent" location="top">Hapus</v-tooltip>
-                </v-btn>
+                <template v-if="isAdmin">
+                  <v-btn
+                    :id="`btn-edit-${item.id}`"
+                    icon
+                    size="small"
+                    variant="tonal"
+                    color="primary"
+                    @click="openEditDialog(item)"
+                  >
+                    <v-icon size="16">mdi-pencil</v-icon>
+                    <v-tooltip activator="parent" location="top">Edit</v-tooltip>
+                  </v-btn>
+                  <v-btn
+                    :id="`btn-delete-${item.id}`"
+                    icon
+                    size="small"
+                    variant="tonal"
+                    color="error"
+                    @click="openDeleteDialog(item)"
+                  >
+                    <v-icon size="16">mdi-delete</v-icon>
+                    <v-tooltip activator="parent" location="top">Hapus</v-tooltip>
+                  </v-btn>
+                </template>
+                <span v-else class="text-grey text-caption">—</span>
               </div>
+            </template>
+
+            <!-- Kolom Aksi Peminjaman: tombol Pinjam (hanya ANGGOTA) -->
+            <template #item.borrow="{ item }">
+              <v-btn
+                v-if="!isAdmin"
+                :id="`btn-borrow-${item.id}`"
+                color="teal"
+                variant="tonal"
+                size="small"
+                prepend-icon="mdi-book-arrow-right"
+                :disabled="item.stock <= 0"
+                :loading="borrowingId === item.id"
+                @click="handleBorrow(item)"
+              >
+                Pinjam
+              </v-btn>
+              <span v-else class="text-grey text-caption">—</span>
             </template>
           </v-data-table>
         </v-card>
@@ -373,23 +422,32 @@ import apiClient from "../api/axios.js";
 
 const router = useRouter();
 
-// ─── State Utama 
+// ─── State Utama
 const books = ref([]);
 const search = ref("");
 const tableLoading = ref(false);
 const currentUser = ref(JSON.parse(localStorage.getItem("perpus_user")));
+const userRole = ref(localStorage.getItem("perpus_role") || "ANGGOTA");
+const borrowingId = ref(null); // ID buku yang sedang dalam proses peminjaman
 
-// ─── Header Tabel 
-const headers = [
-  { title: "No", key: "no", sortable: false, width: "60px" },
-  { title: "Judul Buku", key: "title", sortable: true },
-  { title: "Penerbit", key: "publisher", sortable: true },
-  { title: "Stok", key: "stock", sortable: true, align: "center" },
-  { title: "Ditambahkan", key: "createdAt", sortable: true },
-  { title: "Aksi", key: "actions", sortable: false, align: "center", width: "120px" },
-];
+// ─── RBAC Helper
+const isAdmin = computed(() => userRole.value === "ADMIN");
 
-// ─── Statistik 
+// ─── Header Tabel (dinamis berdasarkan role)
+const tableHeaders = computed(() => {
+  const base = [
+    { title: "No", key: "no", sortable: false, width: "60px" },
+    { title: "Judul Buku", key: "title", sortable: true },
+    { title: "Penerbit", key: "publisher", sortable: true },
+    { title: "Stok", key: "stock", sortable: true, align: "center" },
+    { title: "Ditambahkan", key: "createdAt", sortable: true },
+    { title: "Aksi Admin", key: "actions", sortable: false, align: "center", width: "120px" },
+    { title: "Peminjaman", key: "borrow", sortable: false, align: "center", width: "130px" },
+  ];
+  return base;
+});
+
+// ─── Statistik
 const totalStock = computed(() =>
   books.value.reduce((sum, b) => sum + (b.stock || 0), 0)
 );
@@ -397,7 +455,7 @@ const uniquePublishers = computed(
   () => new Set(books.value.map((b) => b.publisher)).size
 );
 
-// ─── Dialog Tambah/Edit 
+// ─── Dialog Tambah/Edit
 const bookFormRef = ref(null);
 
 const bookDialog = reactive({
@@ -415,14 +473,14 @@ const bookForm = reactive({
   stock: 0,
 });
 
-// ─── Dialog Hapus 
+// ─── Dialog Hapus
 const deleteDialog = reactive({
   show: false,
   loading: false,
   book: null,
 });
 
-// ─── Snackbar 
+// ─── Snackbar
 const snackbar = reactive({
   show: false,
   text: "",
@@ -438,13 +496,13 @@ function showSnackbar(text, color = "success") {
   snackbar.show = true;
 }
 
-// ─── Validasi 
+// ─── Validasi
 const rules = {
   required: (v) => (v !== "" && v !== null && v !== undefined) || "Wajib diisi.",
   nonNegative: (v) => parseInt(v) >= 0 || "Stok tidak boleh negatif.",
 };
 
-// ─── Helpers 
+// ─── Helpers
 function formatDate(dateStr) {
   return new Date(dateStr).toLocaleDateString("id-ID", {
     day: "numeric",
@@ -461,7 +519,7 @@ function resetBookForm() {
   bookFormRef.value?.resetValidation();
 }
 
-// ─── CRUD: Fetch Data 
+// ─── CRUD: Fetch Data
 async function fetchBooks() {
   tableLoading.value = true;
   try {
@@ -474,7 +532,7 @@ async function fetchBooks() {
   }
 }
 
-// ─── Dialog: Tambah 
+// ─── Dialog: Tambah
 function openAddDialog() {
   bookDialog.isEdit = false;
   bookDialog.editId = null;
@@ -483,7 +541,7 @@ function openAddDialog() {
   bookDialog.show = true;
 }
 
-// ─── Dialog: Edit 
+// ─── Dialog: Edit
 function openEditDialog(item) {
   bookDialog.isEdit = true;
   bookDialog.editId = item.id;
@@ -500,7 +558,7 @@ function closeBookDialog() {
   resetBookForm();
 }
 
-// ─── Submit: Tambah / Edit 
+// ─── Submit: Tambah / Edit
 async function submitBook() {
   const { valid } = await bookFormRef.value.validate();
   if (!valid) return;
@@ -510,11 +568,9 @@ async function submitBook() {
 
   try {
     if (bookDialog.isEdit) {
-      // Update buku yang ada
       await apiClient.put(`/books/${bookDialog.editId}`, { ...bookForm });
       showSnackbar("Buku berhasil diperbarui!");
     } else {
-      // Tambah buku baru
       await apiClient.post("/books", { ...bookForm });
       showSnackbar("Buku berhasil ditambahkan!");
     }
@@ -528,7 +584,7 @@ async function submitBook() {
   }
 }
 
-// ─── Dialog: Hapus 
+// ─── Dialog: Hapus
 function openDeleteDialog(item) {
   deleteDialog.book = item;
   deleteDialog.show = true;
@@ -548,14 +604,32 @@ async function confirmDelete() {
   }
 }
 
-// ─── Logout 
+// ─── Peminjaman Buku (Hanya Anggota)
+async function handleBorrow(book) {
+  borrowingId.value = book.id;
+  try {
+    await apiClient.post("/transactions", { bookId: book.id });
+    showSnackbar(`Buku "${book.title}" berhasil dipinjam!`);
+    await fetchBooks(); // refresh stok
+  } catch (err) {
+    showSnackbar(
+      err.response?.data?.message || "Gagal memproses peminjaman.",
+      "error"
+    );
+  } finally {
+    borrowingId.value = null;
+  }
+}
+
+// ─── Logout
 function handleLogout() {
   localStorage.removeItem("perpus_token");
   localStorage.removeItem("perpus_user");
+  localStorage.removeItem("perpus_role");
   router.push({ name: "Login" });
 }
 
-// ─── Lifecycle 
+// ─── Lifecycle
 onMounted(fetchBooks);
 </script>
 

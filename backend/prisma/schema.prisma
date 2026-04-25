@@ -10,23 +10,42 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Model untuk menyimpan data akun pengguna (petugas/admin)
+// Model untuk menyimpan data akun pengguna
 model User {
-  id       Int    @id @default(autoincrement())
-  username String @unique
-  password String // Disimpan dalam bentuk hash bcrypt
+  id           Int           @id @default(autoincrement())
+  username     String        @unique
+  password     String        // Disimpan dalam bentuk hash bcrypt
+  role         String        @default("ANGGOTA") // Peran: 'ADMIN' atau 'ANGGOTA'
+  transactions Transaction[] // Relasi ke transaksi
 
   @@map("users")
 }
 
 // Model untuk menyimpan data buku di perpustakaan
 model Book {
-  id        Int      @id @default(autoincrement())
-  title     String   // Judul buku
-  author    String   // Nama pengarang
-  publisher String   // Nama penerbit
-  stock     Int      @default(0) // Jumlah stok buku
-  createdAt DateTime @default(now()) // Waktu data ditambahkan
+  id           Int           @id @default(autoincrement())
+  title        String        // Judul buku
+  author       String        // Nama pengarang
+  publisher    String        // Nama penerbit
+  stock        Int           @default(0) // Jumlah stok buku
+  createdAt    DateTime      @default(now()) // Waktu data ditambahkan
+  transactions Transaction[] // Relasi ke transaksi
 
   @@map("books")
+}
+
+// Model untuk menyimpan data transaksi peminjaman buku
+model Transaction {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  bookId     Int
+  borrowDate DateTime  @default(now()) // Tanggal peminjaman
+  returnDate DateTime? // Tanggal pengembalian (nullable)
+  status     String    @default("DIPINJAM") // 'DIPINJAM' atau 'DIKEMBALIKAN'
+
+  // Relasi ke User dan Book
+  user User @relation(fields: [userId], references: [id])
+  book Book @relation(fields: [bookId], references: [id])
+
+  @@map("transactions")
 }
